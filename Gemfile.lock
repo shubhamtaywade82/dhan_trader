@@ -107,10 +107,23 @@ GEM
     connection_pool (2.5.3)
     crass (1.0.6)
     csv (3.3.5)
+    daemons (1.4.1)
     date (3.4.1)
     debug (1.11.0)
       irb (~> 1.10)
       reline (>= 0.3.8)
+    delayed_cron_job (0.9.0)
+      fugit (>= 1.5)
+    delayed_job (4.1.13)
+      activesupport (>= 3.0, < 9.0)
+    delayed_job_active_record (4.1.11)
+      activerecord (>= 3.0, < 9.0)
+      delayed_job (>= 3.0, < 5)
+    delayed_job_web (1.4.4)
+      activerecord (> 3.0.0)
+      delayed_job (> 2.0.3)
+      rack-protection (>= 1.5.5)
+      sinatra (>= 1.4.4)
     dotenv (3.1.8)
     dotenv-rails (3.1.8)
       dotenv (= 3.1.8)
@@ -229,6 +242,8 @@ GEM
     minitest (5.25.5)
     msgpack (1.8.0)
     multipart-post (2.4.1)
+    mustermann (3.0.3)
+      ruby2_keywords (~> 0.0.1)
     net-imap (0.5.9)
       date
       net-protocol
@@ -283,6 +298,10 @@ GEM
     raabro (1.4.0)
     racc (1.8.1)
     rack (3.1.16)
+    rack-protection (4.1.1)
+      base64 (>= 0.1.0)
+      logger (>= 1.6.0)
+      rack (>= 3.0.0, < 4)
     rack-session (2.1.1)
       base64 (>= 0.1.0)
       rack (>= 3.0.0)
@@ -374,6 +393,13 @@ GEM
     ruby2_keywords (0.0.5)
     securerandom (0.4.1)
     sexp_processor (4.17.3)
+    sinatra (4.1.1)
+      logger (>= 1.6.0)
+      mustermann (~> 3.0)
+      rack (>= 3.0.0, < 4)
+      rack-protection (= 4.1.1)
+      rack-session (>= 2.0.0, < 3)
+      tilt (~> 2.0)
     solid_cable (3.0.11)
       actioncable (>= 7.2)
       activejob (>= 7.2)
@@ -406,6 +432,7 @@ GEM
     thruster (0.1.14-arm64-darwin)
     thruster (0.1.14-x86_64-darwin)
     thruster (0.1.14-x86_64-linux)
+    tilt (2.6.0)
     timeout (0.4.3)
     turbo-rails (2.0.16)
       actionpack (>= 7.1.0)
@@ -446,7 +473,11 @@ DEPENDENCIES
   bootsnap
   brakeman
   csv
+  daemons
   debug
+  delayed_cron_job
+  delayed_job_active_record
+  delayed_job_web
   dotenv-rails
   importmap-rails
   jbuilder

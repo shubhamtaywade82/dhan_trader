@@ -68,3 +68,7 @@ end
 gem 'csv', require: false
 
 gem 'activerecord-import'
+gem 'daemons'
+gem 'delayed_cron_job'
+gem 'delayed_job_active_record'
+gem 'delayed_job_web'

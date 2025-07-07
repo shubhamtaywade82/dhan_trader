@@ -10,9 +10,25 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_07_07_090144) do
+ActiveRecord::Schema[8.0].define(version: 2025_07_07_143449) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "delayed_jobs", force: :cascade do |t|
+    t.integer "priority", default: 0, null: false
+    t.integer "attempts", default: 0, null: false
+    t.text "handler", null: false
+    t.text "last_error"
+    t.datetime "run_at"
+    t.datetime "locked_at"
+    t.datetime "failed_at"
+    t.string "locked_by"
+    t.string "queue"
+    t.datetime "created_at"
+    t.datetime "updated_at"
+    t.string "cron"
+    t.index ["priority", "run_at"], name: "delayed_jobs_priority"
+  end
 
   create_table "derivatives", force: :cascade do |t|
     t.bigint "instrument_id", null: false
@@ -102,5 +118,51 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_07_090144) do
     t.index ["featureable_type", "featureable_id"], name: "index_order_features_on_featureable"
   end
 
+  create_table "order_snapshots", force: :cascade do |t|
+    t.integer "user_id"
+    t.string "dhan_order_id"
+    t.string "status"
+    t.jsonb "raw"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+  end
+
+  create_table "portfolio_lots", force: :cascade do |t|
+    t.integer "user_id"
+    t.bigint "instrument_id", null: false
+    t.integer "qty"
+    t.decimal "avg_price", precision: 15, scale: 5
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["instrument_id"], name: "index_portfolio_lots_on_instrument_id"
+  end
+
+  create_table "quote_caches", force: :cascade do |t|
+    t.bigint "instrument_id", null: false
+    t.datetime "tick_time"
+    t.decimal "ltp", precision: 15, scale: 5
+    t.jsonb "ohlc"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["instrument_id"], name: "index_quote_caches_on_instrument_id"
+  end
+
+  create_table "recommendations", force: :cascade do |t|
+    t.bigint "instrument_id", null: false
+    t.string "strategy"
+    t.string "style"
+    t.string "action"
+    t.decimal "trigger_price", precision: 15, scale: 5
+    t.decimal "confidence", precision: 5, scale: 2
+    t.datetime "valid_till"
+    t.jsonb "meta"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["instrument_id"], name: "index_recommendations_on_instrument_id"
+  end
+
   add_foreign_key "derivatives", "instruments"
+  add_foreign_key "portfolio_lots", "instruments"
+  add_foreign_key "quote_caches", "instruments"
+  add_foreign_key "recommendations", "instruments"
 end
