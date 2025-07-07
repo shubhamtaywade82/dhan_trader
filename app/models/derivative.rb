@@ -38,7 +38,7 @@ class Derivative < ApplicationRecord
   validates :strike_price, :option_type, :expiry_date, presence: true
 
   def ltp
-    response = Dhanhq::API::MarketFeed.ltp(exch_segment_enum)
+    response = DhanHQ::Models::MarketFeed.ltp(exch_segment_enum)
     response['status'] == 'success' ? response.dig('data', exchange_segment, security_id.to_s, 'last_price') : nil
   rescue StandardError => e
     Rails.logger.error("Failed to fetch LTP for Derivative #{security_id}: #{e.message}")
@@ -46,7 +46,7 @@ class Derivative < ApplicationRecord
   end
 
   def ohlc
-    response = Dhanhq::API::MarketFeed.ohlc(exch_segment_enum)
+    response = DhanHQ::Models::MarketFeed.ohlc(exch_segment_enum)
     response['status'] == 'success' ? response.dig('data', exchange_segment, security_id.to_s) : nil
   rescue StandardError => e
     Rails.logger.error("Failed to fetch OHLC for Derivative #{security_id}: #{e.message}")
@@ -54,7 +54,7 @@ class Derivative < ApplicationRecord
   end
 
   def depth
-    response = Dhanhq::API::MarketFeed.quote(exch_segment_enum)
+    response = DhanHQ::Models::MarketFeed.quote(exch_segment_enum)
     response['status'] == 'success' ? response.dig('data', exchange_segment, security_id.to_s) : nil
   rescue StandardError => e
     Rails.logger.error("Failed to fetch Depth for Derivative #{security_id}: #{e.message}")

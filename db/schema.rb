@@ -10,25 +10,9 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_07_07_143449) do
+ActiveRecord::Schema[8.0].define(version: 2025_07_07_170110) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
-
-  create_table "delayed_jobs", force: :cascade do |t|
-    t.integer "priority", default: 0, null: false
-    t.integer "attempts", default: 0, null: false
-    t.text "handler", null: false
-    t.text "last_error"
-    t.datetime "run_at"
-    t.datetime "locked_at"
-    t.datetime "failed_at"
-    t.string "locked_by"
-    t.string "queue"
-    t.datetime "created_at"
-    t.datetime "updated_at"
-    t.string "cron"
-    t.index ["priority", "run_at"], name: "delayed_jobs_priority"
-  end
 
   create_table "derivatives", force: :cascade do |t|
     t.bigint "instrument_id", null: false
@@ -77,8 +61,10 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_07_143449) do
     t.decimal "mtf_leverage", precision: 5, scale: 2
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "tradable", default: false
     t.index ["instrument"], name: "index_instruments_on_instrument"
     t.index ["security_id", "symbol_name", "exchange", "segment"], name: "index_instruments_unique", unique: true
+    t.index ["tradable"], name: "index_instruments_on_tradable"
   end
 
   create_table "margin_requirements", force: :cascade do |t|
@@ -156,6 +142,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_07_143449) do
     t.decimal "confidence", precision: 5, scale: 2
     t.datetime "valid_till"
     t.jsonb "meta"
+    t.decimal "entry_price", precision: 10, scale: 2
+    t.decimal "stop_loss", precision: 10, scale: 2
+    t.decimal "take_profit", precision: 10, scale: 2
+    t.integer "quantity"
+    t.jsonb "pyramid_entries"
+    t.string "option_strike"
+    t.decimal "expected_profit_percent", precision: 5, scale: 2
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.index ["instrument_id"], name: "index_recommendations_on_instrument_id"

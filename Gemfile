@@ -65,10 +65,10 @@ group :development do
   gem 'web-console'
 end
 
-gem 'csv', require: false
-
 gem 'activerecord-import'
+gem 'csv', require: false
 gem 'daemons'
-gem 'delayed_cron_job'
-gem 'delayed_job_active_record'
-gem 'delayed_job_web'
+gem 'ruby-openai'
+gem 'ruby-technical-analysis'
+gem 'technical-analysis'
+gem 'whenever', require: false

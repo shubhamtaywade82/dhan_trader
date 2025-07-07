@@ -1,7 +1,7 @@
 module Strategies
   class Rsi2Intraday < Base
     STYLE = :intraday
-    NAME  = 'rsi-2'
+    NAME  = 'rsi-2'.freeze
 
     def call
       out = []

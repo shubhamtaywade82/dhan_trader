@@ -1,22 +1,22 @@
 require 'csv'
 require 'open-uri'
 
-URL   = 'https://images.dhan.co/api-data/api-scrip-master-detailed.csv'
+URL   = 'https://images.dhan.co/api-data/api-scrip-master-detailed.csv'.freeze
 CACHE = Rails.root.join('tmp/dhan.csv')
 
 # download only if file is missing or > 12 h old
-if !File.exist?(CACHE) || (Time.now - CACHE.mtime) > 12.hours
+if !File.exist?(CACHE) || (Time.zone.now - CACHE.mtime) > 12.hours
   puts 'Downloading CSV …'
   File.binwrite(CACHE, URI.open(URL).read)
 else
-  puts "Using cached CSV (#{((Time.now - CACHE.mtime) / 3600).round(1)} h old)"
+  puts "Using cached CSV (#{((Time.zone.now - CACHE.mtime) / 3600).round(1)} h old)"
 end
 
 rows = CSV.read(CACHE, headers: true)
 puts "Loaded #{rows.size} rows"
 
-EXCH_OK   = %w[NSE BSE MCX]
-SPOT_CODE = %w[INDEX EQUITY]
+EXCH_OK   = %w[NSE BSE MCX].freeze
+SPOT_CODE = %w[INDEX EQUITY].freeze
 
 referenced_ids = rows.filter_map { |r| r['UNDERLYING_SECURITY_ID'] }.to_set
 
@@ -58,7 +58,7 @@ instrument_lookup =
   end
 puts "Lookup table ready (#{instrument_lookup.size} keys)"
 
-DERIV_CODE = %w[FUTIDX OPTIDX FUTSTK OPTSTK FUTCUR OPTCUR FUTCOM OPTFUT]
+DERIV_CODE = %w[FUTIDX OPTIDX FUTSTK OPTSTK FUTCUR OPTCUR FUTCOM OPTFUT].freeze
 
 deriv_attrs =
   rows.filter_map do |r|
@@ -87,7 +87,7 @@ deriv_attrs =
       strike_price: r['STRIKE_PRICE'],
       option_type: r['OPTION_TYPE'],
       expiry_flag: r['EXPIRY_FLAG'],
-      lot_size: (n = r['LOT_SIZE'].to_i),
+      lot_size: r['LOT_SIZE'].to_i,
       tick_size: r['TICK_SIZE'],
       asm_gsm_flag: r['ASM_GSM_FLAG'] == 'Y',
       created_at: Time.current,

@@ -30,11 +30,11 @@ class InstrumentsImporter
   # cache logic
   # ------------------------------------------------------------------------
   def self.fetch_csv
-    if !File.exist?(CACHE) || (Time.now - CACHE.mtime) > 12.hours
+    if !File.exist?(CACHE) || (Time.zone.now - CACHE.mtime) > 12.hours
       Rails.logger.info 'Downloading master CSV …'
       File.binwrite(CACHE, URI.open(CSV_URL).read)
     else
-      age = ((Time.now - CACHE.mtime) / 3600).round(1)
+      age = ((Time.zone.now - CACHE.mtime) / 3600).round(1)
       Rails.logger.info "Using cached CSV (#{age} h old)"
     end
     CACHE
@@ -44,7 +44,7 @@ class InstrumentsImporter
   # split into spot & derivative attribute hashes
   # ------------------------------------------------------------------------
   def self.partition_rows(csv)
-    referenced = csv.map { _1['UNDERLYING_SECURITY_ID'] }.compact.to_set
+    referenced = csv.pluck('UNDERLYING_SECURITY_ID').compact.to_set
 
     spot_attrs   = []
     deriv_attrs  = []

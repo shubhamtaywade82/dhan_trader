@@ -6,6 +6,6 @@ class CronJob < ApplicationJob
 
   def self.scheduled?
     Delayed::Job.where('handler LIKE ?', "%job_class: #{name}%")
-                .where(failed_at: nil).exists?
+                .exists?(failed_at: nil)
   end
 end

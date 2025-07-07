@@ -9,6 +9,13 @@ class CreateRecommendations < ActiveRecord::Migration[8.0]
       t.decimal :confidence, precision: 5, scale: 2
       t.datetime :valid_till
       t.jsonb :meta
+      t.decimal :entry_price, precision: 10, scale: 2
+      t.decimal :stop_loss, precision: 10, scale: 2
+      t.decimal :take_profit, precision: 10, scale: 2
+      t.integer :quantity
+      t.jsonb :pyramid_entries
+      t.string :option_strike
+      t.decimal :expected_profit_percent, precision: 5, scale: 2
 
       t.timestamps
     end

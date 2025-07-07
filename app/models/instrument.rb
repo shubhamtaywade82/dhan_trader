@@ -62,7 +62,7 @@ class Instrument < ApplicationRecord
   # API Methods
   def fetch_option_chain(expiry = nil)
     expiry ||= expiry_list.first
-    response = Dhanhq::API::Option.chain(
+    response = DhanHQ::Models::Option.chain(
       UnderlyingScrip: security_id.to_i,
       UnderlyingSeg: exchange_segment,
       Expiry: expiry
@@ -112,7 +112,7 @@ class Instrument < ApplicationRecord
   end
 
   def fetch_ltp_from_api
-    response = Dhanhq::API::MarketFeed.ltp(exch_segment_enum)
+    response = DhanHQ::Models::MarketFeed.ltp(exch_segment_enum)
     response['status'] == 'success' ? response.dig('data', exchange_segment, security_id.to_s, 'last_price') : nil
   rescue StandardError => e
     Rails.logger.error("Failed to fetch LTP for Instrument #{security_id}: #{e.message}")
@@ -120,7 +120,7 @@ class Instrument < ApplicationRecord
   end
 
   def ohlc
-    response = Dhanhq::API::MarketFeed.ohlc(exch_segment_enum)
+    response = DhanHQ::Models::MarketFeed.ohlc(exch_segment_enum)
     response['status'] == 'success' ? response.dig('data', exchange_segment, security_id.to_s) : nil
   rescue StandardError => e
     Rails.logger.error("Failed to fetch OHLC for Instrument #{security_id}: #{e.message}")
@@ -128,7 +128,7 @@ class Instrument < ApplicationRecord
   end
 
   def historical_ohlc(from_date: nil, to_date: nil, oi: false)
-    Dhanhq::API::Historical.daily(
+    DhanHQ::Models::Historical.daily(
       securityId: security_id,
       exchangeSegment: exchange_segment,
       instrument: instrument_type,
@@ -143,7 +143,7 @@ class Instrument < ApplicationRecord
   end
 
   def intraday_ohlc(interval: nil, oi: false, from_date: nil, to_date: nil)
-    Dhanhq::API::Historical.intraday(
+    DhanHQ::Models::Historical.intraday(
       securityId: security_id,
       exchangeSegment: exchange_segment,
       instrument: instrument_type,
@@ -158,7 +158,7 @@ class Instrument < ApplicationRecord
   end
 
   def depth
-    response = Dhanhq::API::MarketFeed.quote(exch_segment_enum)
+    response = DhanHQ::Models::MarketFeed.quote(exch_segment_enum)
     response['status'] == 'success' ? response.dig('data', exchange_segment, security_id.to_s) : nil
   rescue StandardError => e
     Rails.logger.error("Failed to fetch Depth for Instrument #{security_id}: #{e.message}")
@@ -171,7 +171,7 @@ class Instrument < ApplicationRecord
   end
 
   def expiry_list
-    response = Dhanhq::API::Option.expiry_list(
+    response = DhanHQ::Models::Option.expiry_list(
       UnderlyingScrip: security_id,
       UnderlyingSeg: exchange_segment
     )

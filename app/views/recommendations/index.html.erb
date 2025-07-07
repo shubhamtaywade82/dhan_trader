@@ -1,0 +1,16 @@
+<!-- app/views/recommendations/index.html.erb -->
+
+<h2>Recommendations</h2>
+
+<div data-controller="recommendations">
+  <template data-recommendations-target="template">
+    <div class="card">
+      <h4 data-recommendations-target="symbol"></h4>
+      <ul data-recommendations-target="signals"></ul>
+      <p data-recommendations-target="explanation"></p>
+      <button data-action="recommendations#placeOrder">Place Order</button>
+    </div>
+  </template>
+
+  <div data-recommendations-target="container"></div>
+</div>

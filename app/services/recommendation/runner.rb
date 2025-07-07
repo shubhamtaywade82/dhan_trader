@@ -4,7 +4,7 @@ module Recommendation
       Strategies::Rsi2Intraday.new
       # Strategies::BreakoutSwing.new,
       # ...
-    ]
+    ].freeze
 
     def self.execute!
       STRATEGIES.each do |s|
