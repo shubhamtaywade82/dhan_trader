@@ -4,150 +4,139 @@ require 'csv'
 require 'open-uri'
 
 class InstrumentsImporter
-  CSV_URL  = 'https://images.dhan.co/api-data/api-scrip-master-detailed.csv'
-  CACHE    = Rails.root.join('tmp/api-scrip-master-detailed.csv')
+  CSV_URL = 'https://images.dhan.co/api-data/api-scrip-master-detailed.csv'
 
-  VALID_EXCHANGES   = %w[NSE BSE MCX].freeze
-  SPOT_CODES        = %w[INDEX EQUITY].freeze
-  DERIV_CODES       = %w[FUTIDX OPTIDX FUTSTK OPTSTK FUTCUR OPTCUR FUTCOM OPTFUT].freeze
-  BATCH_SIZE        = 1_000 # activerecord-import takes care of slicing
+  VALID_EXCHANGES = %w[NSE BSE MCX].freeze
+  VALID_INSTRUMENTS = %w[OPTIDX FUTIDX OPTSTK FUTSTK FUTCUR OPTCUR FUTCOM OPTFUT EQUITY INDEX].freeze
+  BATCH_SIZE = 500
 
-  # ------------------------------------------------------------------------
-  def self.import(path = nil)
-    path ||= fetch_csv
-    csv  = CSV.read(path, headers: true)
-    Rails.logger.info "CSV loaded – #{csv.size} rows"
+  def self.import(file_path = nil)
+    file_path ||= download_csv
+    Rails.logger.debug { "Using CSV file: #{file_path}" }
+    csv_data = CSV.read(file_path, headers: true)
 
-    spots, derivs = partition_rows(csv)
+    Rails.logger.debug 'Starting CSV import with optimized batch processing...'
 
-    import_spots(spots)
-    import_derivs(derivs)
+    instrument_mapping = import_instruments(csv_data)
+    import_derivatives(csv_data, instrument_mapping)
 
-    Rails.logger.info '✓ CSV import finished'
+    Rails.logger.debug 'CSV Import completed successfully!'
   end
 
-  # ------------------------------------------------------------------------
-  # cache logic
-  # ------------------------------------------------------------------------
-  def self.fetch_csv
-    if !File.exist?(CACHE) || (Time.zone.now - CACHE.mtime) > 12.hours
-      Rails.logger.info 'Downloading master CSV …'
-      File.binwrite(CACHE, URI.open(CSV_URL).read)
-    else
-      age = ((Time.zone.now - CACHE.mtime) / 3600).round(1)
-      Rails.logger.info "Using cached CSV (#{age} h old)"
+  def self.download_csv
+    Rails.logger.debug { "Downloading CSV from #{CSV_URL}..." }
+    tmp_file = Rails.root.join('tmp/api-scrip-master-detailed.csv')
+    File.binwrite(tmp_file, URI.open(CSV_URL).read)
+    Rails.logger.debug { "CSV downloaded to #{tmp_file}" }
+    tmp_file
+  end
+
+  def self.import_instruments(csv_data)
+    Rails.logger.debug 'Batch importing instruments...'
+
+    instrument_rows = csv_data.select do |row|
+      valid_instrument?(row)
+    end.filter_map do |row|
+      next if row['SEGMENT'] == 'D' # Derivatives handled separately
+
+      {
+        security_id: row['SECURITY_ID'],
+        symbol_name: row['SYMBOL_NAME'],
+        display_name: row['DISPLAY_NAME'],
+        isin: row['ISIN'],
+        exchange: row['EXCH_ID'],
+        segment: row['SEGMENT'],
+        instrument: row['INSTRUMENT'],
+        instrument_type: row['INSTRUMENT_TYPE'],
+        underlying_symbol: row['UNDERLYING_SYMBOL'],
+        underlying_security_id: row['UNDERLYING_SECURITY_ID'],
+        series: row['SERIES'],
+        lot_size: row['LOT_SIZE'].to_i.positive? ? row['LOT_SIZE'].to_i : nil,
+        tick_size: row['TICK_SIZE'].to_f,
+        asm_gsm_flag: row['ASM_GSM_FLAG'],
+        asm_gsm_category: row['ASM_GSM_CATEGORY'],
+        mtf_leverage: row['MTF_LEVERAGE'].to_f,
+        created_at: Time.zone.now,
+        updated_at: Time.zone.now
+      }
     end
-    CACHE
-  end
 
-  # ------------------------------------------------------------------------
-  # split into spot & derivative attribute hashes
-  # ------------------------------------------------------------------------
-  def self.partition_rows(csv)
-    referenced = csv.pluck('UNDERLYING_SECURITY_ID').compact.to_set
+    result = Instrument.import(
+      instrument_rows,
+      on_duplicate_key_update: {
+        conflict_target: %i[security_id symbol_name exchange segment],
+        columns: %i[display_name isin instrument underlying_symbol underlying_security_id lot_size tick_size
+                    asm_gsm_flag asm_gsm_category mtf_leverage updated_at]
+      },
+      batch_size: BATCH_SIZE,
+      returning: %i[id symbol_name exchange segment]
+    )
 
-    spot_attrs   = []
-    deriv_attrs  = []
+    Rails.logger.debug { "#{result.ids.size} instruments imported successfully." }
 
-    csv.each do |r|
-      next unless VALID_EXCHANGES.include?(r['EXCH_ID'])
-
-      attrs = build_common_attrs(r)
-
-      if SPOT_CODES.include?(r['INSTRUMENT']) ||
-         referenced.include?(r['SECURITY_ID'])
-        spot_attrs << attrs
-      elsif DERIV_CODES.include?(r['INSTRUMENT'])
-        deriv_attrs << attrs.merge(
-          expiry_date: safe_date(r['SM_EXPIRY_DATE']),
-          strike_price: r['STRIKE_PRICE'],
-          option_type: r['OPTION_TYPE'],
-          expiry_flag: r['EXPIRY_FLAG'],
-          asm_gsm_flag: r['ASM_GSM_FLAG'] == 'Y'
-        )
-      end
+    Instrument.where(security_id: instrument_rows.pluck(:security_id))
+              .pluck(:id, :underlying_symbol, :segment, :exchange)
+              .each_with_object({}) do |(id, underlying_symbol, _segment, exchange), mapping|
+      mapping["#{underlying_symbol}-#{Instrument.exchanges[exchange]}"] = id
     end
-    [spot_attrs, deriv_attrs]
   end
 
-  # ------------------------------------------------------------------------
-  def self.build_common_attrs(r)
-    {
-      security_id: r['SECURITY_ID'],
-      exchange: r['EXCH_ID'],
-      segment: r['SEGMENT'],
-      instrument: r['INSTRUMENT'],
-      instrument_type: r['INSTRUMENT_TYPE'],
-      symbol_name: r['SYMBOL_NAME'],
-      display_name: r['DISPLAY_NAME'],
-      isin: r['ISIN'] || 0,
-      underlying_symbol: r['UNDERLYING_SYMBOL'],
-      underlying_security_id: r['UNDERLYING_SECURITY_ID'],
-      series: r['SERIES'],
-      lot_size: safe_int(r['LOT_SIZE']),
-      tick_size: r['TICK_SIZE'],
-      asm_gsm_flag: r['ASM_GSM_FLAG'],
-      asm_gsm_category: r['ASM_GSM_CATEGORY'],
-      mtf_leverage: r['MTF_LEVERAGE'],
-      created_at: Time.current,
-      updated_at: Time.current
-    }
+  def self.import_derivatives(csv_data, instrument_mapping)
+    Rails.logger.debug 'Batch importing derivatives...'
+    derivative_rows = csv_data.select do |row|
+      valid_derivative?(row) && row['SEGMENT'] == 'D'
+    end.filter_map do |row|
+      instrument_id = instrument_mapping["#{row['UNDERLYING_SYMBOL']}-#{row['EXCH_ID']}"]
+      next unless instrument_id
+
+      {
+        exchange: row['EXCH_ID'],
+        segment: row['SEGMENT'],
+        security_id: row['SECURITY_ID'],
+        symbol_name: row['SYMBOL_NAME'],
+        display_name: row['DISPLAY_NAME'],
+        instrument: row['INSTRUMENT'],
+        instrument_type: row['INSTRUMENT_TYPE'],
+        underlying_symbol: row['UNDERLYING_SYMBOL'],
+        underlying_security_id: row['UNDERLYING_SECURITY_ID'],
+        expiry_date: parse_date(row['SM_EXPIRY_DATE']),
+        strike_price: row['STRIKE_PRICE'].to_f,
+        option_type: row['OPTION_TYPE'],
+        expiry_flag: row['EXPIRY_FLAG'],
+        lot_size: row['LOT_SIZE'].to_i,
+        tick_size: row['TICK_SIZE'].to_f,
+        asm_gsm_flag: row['ASM_GSM_FLAG'] == 'Y',
+        instrument_id: instrument_id,
+        created_at: Time.zone.now,
+        updated_at: Time.zone.now
+      }
+    end
+
+    result = Derivative.import(
+      derivative_rows,
+      on_duplicate_key_update: {
+        conflict_target: %i[security_id symbol_name exchange segment],
+        columns: %i[display_name instrument_type underlying_symbol underlying_security_id expiry_date strike_price
+                    option_type lot_size tick_size asm_gsm_flag instrument_id updated_at]
+      },
+      batch_size: BATCH_SIZE,
+      returning: %i[id symbol_name exchange segment]
+    )
+
+    Rails.logger.debug { "#{result.ids.size} derivatives imported successfully." }
   end
 
-  # ------------------------------------------------------------------------
-  # import spots → instruments
-  # ------------------------------------------------------------------------
-  def self.import_spots(attrs)
-    Instrument.delete_all
-
-    Instrument.import attrs,
-                      validate: false,
-                      batch_size: BATCH_SIZE,
-                      on_duplicate_key_update: {
-                        conflict_target: %i[security_id symbol_name exchange segment],
-                        columns: %i[display_name isin instrument_type
-                                    underlying_symbol underlying_security_id
-                                    lot_size tick_size asm_gsm_flag
-                                    asm_gsm_category mtf_leverage updated_at]
-                      }
-
-    Rails.logger.info "• #{Instrument.count} instruments imported"
+  def self.valid_instrument?(row)
+    VALID_EXCHANGES.include?(row['EXCH_ID']) &&
+      VALID_INSTRUMENTS.include?(row['INSTRUMENT'])
   end
 
-  # ------------------------------------------------------------------------
-  # import derivs → derivatives (FK uses underlying_security_id)
-  # ------------------------------------------------------------------------
-  def self.import_derivs(attrs)
-    # lookup: security_id → instrument.id
-    id_map = Instrument.pluck(:security_id, :id).to_h
-
-    attrs.each { |h| h[:instrument_id] = id_map[h[:underlying_security_id]] }
-    attrs.select! { |h| h[:instrument_id].present? } # drop orphans
-
-    Derivative.delete_all
-    Derivative.import attrs,
-                      validate: false,
-                      batch_size: BATCH_SIZE,
-                      on_duplicate_key_update: {
-                        conflict_target: %i[security_id symbol_name exchange segment],
-                        columns: %i[display_name instrument_type
-                                    underlying_symbol lot_size tick_size
-                                    expiry_date strike_price option_type
-                                    expiry_flag asm_gsm_flag instrument_id
-                                    updated_at]
-                      }
-
-    Rails.logger.info "• #{Derivative.count} derivatives imported"
+  def self.valid_derivative?(row)
+    %w[FUTIDX OPTIDX FUTSTK OPTSTK FUTCUR OPTCUR FUTCOM OPTFUT].include?(row['INSTRUMENT'])
   end
 
-  # helpers ----------------------------------------------------------------
-  def self.safe_int(v)
-    n = v.to_i
-    n.positive? ? n : nil
-  end
-
-  def self.safe_date(s)
-    Date.parse(s)
+  def self.parse_date(date_string)
+    Date.parse(date_string)
   rescue StandardError
     nil
   end
